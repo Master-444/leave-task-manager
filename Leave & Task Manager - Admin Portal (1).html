@@ -594,9 +594,9 @@
                 <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Login</button>
             </form>
             <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color); font-size: 12px; color: var(--text-secondary);">
-                <p><strong>Demo Credentials:</strong></p>
-                <p>Admin: admin / admin123</p>
-                <p>PA: pa / pa123</p>
+                <p><strong>Admin Login:</strong></p>
+                <p>User ID: <strong>admin</strong></p>
+                <p>Password: <strong>master@5144</strong></p>
             </div>
         </div>
     </div>
@@ -767,19 +767,20 @@
                 </div>
 
                 <div>
-                    <div class="section-title">Faculty Directory</div>                <div class="toolbar">
-                    <button class="btn btn-primary" onclick="openAddFacultyModal()">+ Add Faculty</button>
-                    <button class="btn btn-secondary" onclick="exportAllFacultyLeaves()">📥 Export All Faculty Leaves</button>
-                    <select id="facultyExportFilter" onchange="filterFacultyDirectory()" style="flex: 0 0 250px;">
-                        <option value="">All Faculty</option>
-                    </select>
-                    <input type="text" id="facultySearchDir" class="search-input" placeholder="Search faculty..." onkeyup="filterFacultyDirectory()">
-                </div>
+                    <div class="section-title">Faculty Directory</div>
+                    <div class="toolbar">
+                        <button class="btn btn-primary" onclick="openAddFacultyModal()">+ Add Faculty</button>
+                        <button class="btn btn-secondary" onclick="exportAllFacultyLeaves()">📥 Export All Faculty Leaves</button>
+                        <select id="facultyExportFilter" onchange="filterFacultyDirectory()" style="flex: 0 0 250px;">
+                            <option value="">All Faculty</option>
+                        </select>
+                        <input type="text" id="facultySearchDir" class="search-input" placeholder="Search faculty..." onkeyup="filterFacultyDirectory()">
+                    </div>
                     <div id="facultyDirectoryTable">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Faculty Name</th>
+                                    <th>Faculty</th>
                                     <th>CL</th>
                                     <th>ML</th>
                                     <th>EL</th>
@@ -991,6 +992,10 @@
                     <label>Faculty Name *</label>
                     <input type="text" id="facultyName" placeholder="Enter faculty name (e.g., Dr. John Doe)" required>
                 </div>
+                <div class="form-group">
+                    <label>Designation *</label>
+                    <input type="text" id="facultyDesignation" placeholder="e.g., Professor, Associate Professor" required>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Casual Leave (CL) Allocation *</label>
@@ -1098,7 +1103,7 @@
                 </div>
                 <div style="background: rgba(245, 158, 11, 0.1); padding: 12px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid var(--warning-color);">
                     <p style="font-size: 13px; color: var(--warning-color); margin: 0;">
-                        <strong>⚠️ Note:</strong> A temporary password email will be sent to the user's registered email address.
+                        <strong>⚠️ Note:</strong> A temporary password email will be sent to the user's registered email address (simulated).
                     </p>
                 </div>
                 <div class="modal-footer">
@@ -1165,9 +1170,9 @@
 
     <script>
         // Authentication Data
+        // Fixed admin login. All PA users will be created via Settings.
         const credentials = {
-            admin: { username: 'admin', password: 'admin123', role: 'Admin' },
-            pa: { username: 'pa', password: 'pa123', role: 'PA' }
+            admin: { username: 'admin', password: 'master@5144', role: 'Admin' }
         };
 
         let currentUser = null;
@@ -1177,8 +1182,14 @@
             leaves: [],
             tasks: [],
             users: [
-                { userId: 'admin', userType: 'Admin', fullName: 'Administrator', email: 'admin@institution.edu', createdDate: '2024-01-01', status: 'Active' },
-                { userId: 'pa', userType: 'PA', fullName: 'Personal Assistant', email: 'pa@institution.edu', createdDate: '2024-01-01', status: 'Active' }
+                {
+                    userId: 'admin',
+                    userType: 'Admin',
+                    fullName: 'Administrator',
+                    email: 'admin@institution.edu',
+                    createdDate: '2024-01-01',
+                    status: 'Active'
+                }
             ],
             nextLeaveId: 1,
             nextTaskId: 1
@@ -1189,27 +1200,68 @@
             default: { CL: 12, ML: 12, EL: 20, SL: 10 }
         };
 
+        // Persistence helpers
+        function saveAppState() {
+            try {
+                localStorage.setItem('ltm_state', JSON.stringify({
+                    leaves: state.leaves,
+                    tasks: state.tasks,
+                    users: state.users,
+                    nextLeaveId: state.nextLeaveId,
+                    nextTaskId: state.nextTaskId
+                }));
+                localStorage.setItem('ltm_facultyBalances', JSON.stringify(window.facultyBalances || []));
+            } catch (e) {
+                console.error('Error saving state', e);
+            }
+        }
+
+        function loadAppState() {
+            try {
+                const saved = localStorage.getItem('ltm_state');
+                const savedFaculty = localStorage.getItem('ltm_facultyBalances');
+
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    state.leaves = parsed.leaves || [];
+                    state.tasks = parsed.tasks || [];
+                    state.users = parsed.users || state.users;
+                    state.nextLeaveId = parsed.nextLeaveId || 1;
+                    state.nextTaskId = parsed.nextTaskId || 1;
+                }
+
+                if (savedFaculty) {
+                    window.facultyBalances = JSON.parse(savedFaculty);
+                } else {
+                    window.facultyBalances = window.facultyBalances || [];
+                }
+            } catch (e) {
+                console.error('Error loading saved state', e);
+            }
+        }
+
         // Login Handler
         function handleLogin(event) {
             event.preventDefault();
             const userType = document.getElementById('userType').value;
-            const username = document.getElementById('loginUsername').value;
+            const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
 
-            const cred = Object.values(credentials).find(c =>
-                c.role === userType && c.username === username && c.password === password
-            );
+            const credKey = username.toLowerCase();
+            const cred = credentials[credKey];
 
-            if (cred) {
+            if (cred && cred.role === userType && cred.username === username && cred.password === password) {
                 currentUser = { username, role: userType };
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
                 document.getElementById('userDisplay').textContent = `${userType} - ${username}`;
+
+                loadAppState();
                 initializeData();
                 controlPAAccess();
                 renderLeaves();
                 renderTasks();
-                showAlert('✅ Login successful! (No storage errors - using in-memory state)', 'success');
+                showAlert('✅ Login successful!', 'success');
             } else {
                 showLoginAlert('Invalid credentials!', 'danger');
             }
@@ -1223,6 +1275,13 @@
             document.getElementById('loginPassword').value = '';
             document.getElementById('userType').value = '';
             showLoginAlert('Logged out successfully!', 'success');
+        }
+
+        function showLoginAlert(message, type) {
+            const alert = document.getElementById('loginAlert');
+            alert.textContent = message;
+            alert.className = `alert show alert-${type}`;
+            setTimeout(() => alert.classList.remove('show'), 3000);
         }
 
         // User Account Management Functions
@@ -1268,12 +1327,11 @@
             event.preventDefault();
             const userId = document.getElementById('newUserId').value.trim();
             const userType = document.getElementById('newUserType').value;
-            const fullName = document.getElementById('newUserFullName').value;
-            const email = document.getElementById('newUserEmail').value;
+            const fullName = document.getElementById('newUserFullName').value.trim();
+            const email = document.getElementById('newUserEmail').value.trim();
             const password = document.getElementById('newUserPassword').value;
             const passwordConfirm = document.getElementById('newUserPasswordConfirm').value;
 
-            // Validation
             if (password !== passwordConfirm) {
                 showAlert('Passwords do not match!', 'danger');
                 return;
@@ -1289,7 +1347,6 @@
                 return;
             }
 
-            // Create new user (in production, passwords would be hashed and stored securely)
             const newUser = {
                 userId: userId,
                 userType: userType,
@@ -1301,13 +1358,13 @@
 
             state.users.push(newUser);
 
-            // Update credentials object for login
             credentials[userId.toLowerCase()] = {
                 username: userId,
                 password: password,
                 role: userType
             };
 
+            saveAppState();
             closeModal('createUserModal');
             renderUserManagement();
             showAlert(`✅ User "${userId}" created successfully!\n📧 Credentials email sent to ${email}`, 'success');
@@ -1330,7 +1387,6 @@
             const newPassword = document.getElementById('resetNewPassword').value;
             const newPasswordConfirm = document.getElementById('resetNewPasswordConfirm').value;
 
-            // Validation
             if (newPassword !== newPasswordConfirm) {
                 showAlert('Passwords do not match!', 'danger');
                 return;
@@ -1341,13 +1397,13 @@
                 return;
             }
 
-            // Update password in credentials
             if (credentials[userId.toLowerCase()]) {
                 credentials[userId.toLowerCase()].password = newPassword;
             }
 
             const user = state.users.find(u => u.userId === userId);
             if (user) {
+                saveAppState();
                 closeModal('resetPasswordModal');
                 renderUserManagement();
                 showAlert(`✅ Password reset successfully!\n📧 Temporary password email sent to ${user.email}`, 'success');
@@ -1355,8 +1411,7 @@
         }
 
         function deleteUser(userId) {
-            // Prevent deletion of current logged-in user
-            if (userId === currentUser.username) {
+            if (!currentUser || userId === currentUser.username) {
                 showAlert('Cannot delete the currently logged-in user!', 'danger');
                 return;
             }
@@ -1364,6 +1419,7 @@
             if (confirm(`Are you sure you want to delete user "${userId}"? This action cannot be undone.`)) {
                 state.users = state.users.filter(u => u.userId !== userId);
                 delete credentials[userId.toLowerCase()];
+                saveAppState();
                 renderUserManagement();
                 showAlert(`User "${userId}" deleted successfully!`, 'success');
             }
@@ -1374,7 +1430,7 @@
             tbody.innerHTML = '';
 
             state.users.forEach(user => {
-                const isCurrentUser = user.userId === currentUser.username;
+                const isCurrentUser = currentUser && user.userId === currentUser.username;
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${user.userId}</strong></td>
@@ -1391,15 +1447,7 @@
                 tbody.appendChild(row);
             });
 
-            // Update total users stat
             document.getElementById('totalUsers').textContent = state.users.length;
-        }
-
-        function showLoginAlert(message, type) {
-            const alert = document.getElementById('loginAlert');
-            alert.textContent = message;
-            alert.className = `alert show alert-${type}`;
-            setTimeout(() => alert.classList.remove('show'), 3000);
         }
 
         // Leave Types Management
@@ -1411,57 +1459,29 @@
             { code: 'OD', name: 'On Duty', allocation: 30, type: 'Standard' }
         ];
 
-        // Initialize Sample Data
+        // Initialize Sample Data (now only ensures arrays exist; no dummy faculty)
         function initializeData() {
-            // Sample faculty for leave balance
-            const sampleFaculty = [
-                'Dr. Rajesh Kumar', 'Dr. Priya Sharma', 'Dr. Arun Patel', 'Dr. Sneha Desai', 'Dr. Vikram Singh',
-                'Dr. Anita Gupta', 'Dr. Suresh Kumar', 'Dr. Neha Verma', 'Dr. Manoj Reddy', 'Dr. Pooja Nair',
-                'Dr. Arjun Rao', 'Dr. Lakshmi Iyer', 'Dr. Kamal Mehta', 'Dr. Divya Choudhury', 'Dr. Ravi Kumar',
-                'Dr. Sanjana Mishra', 'Dr. Harish Pillai', 'Dr. Kavya Kumar', 'Dr. Nikhil Singh', 'Dr. Anjali Verma',
-                'Dr. Rohan Gupta', 'Dr. Swathi Rao', 'Dr. Arjun Kumar', 'Dr. Deepa Sharma', 'Dr. Amit Patel',
-                'Dr. Jasmine Khan', 'Dr. Vinod Kumar', 'Dr. Ritu Desai', 'Dr. Sanjay Singh', 'Dr. Priya Nair'
-            ];
-
-            // Initialize with empty state if no sample data
-            if (state.leaves.length === 0) {
-                state.leaves = [];
-            }
-            if (state.tasks.length === 0) {
-                state.tasks = [];
+            if (!state.leaves) state.leaves = [];
+            if (!state.tasks) state.tasks = [];
+            if (!state.users || state.users.length === 0) {
+                state.users = [
+                    {
+                        userId: 'admin',
+                        userType: 'Admin',
+                        fullName: 'Administrator',
+                        email: 'admin@institution.edu',
+                        createdDate: '2024-01-01',
+                        status: 'Active'
+                    }
+                ];
             }
 
-            // Create faculty balance objects with permissions
-            window.facultyBalances = sampleFaculty.map(name => ({
-                name,
-                CL: 12,
-                ML: 12,
-                EL: 20,
-                SL: 10,
-                OD: 30,
-                permissions: 2,
-                permissionsUsed: 0
-            }));
+            if (!window.facultyBalances) {
+                window.facultyBalances = [];
+            }
 
-            // Populate leave application faculty dropdown
-            const leaveApplicantSelect = document.getElementById('leaveApplicantName');
-            leaveApplicantSelect.innerHTML = '<option value="">Select Faculty Member</option>';
-            sampleFaculty.forEach(faculty => {
-                const option = document.createElement('option');
-                option.value = faculty;
-                option.textContent = faculty;
-                leaveApplicantSelect.appendChild(option);
-            });
-
-            // Populate task assignee faculty dropdown
-            const taskAssigneeSelect = document.getElementById('taskAssigneeSelect');
-            taskAssigneeSelect.innerHTML = '<option value="">Select Faculty Member</option>';
-            sampleFaculty.forEach(faculty => {
-                const option = document.createElement('option');
-                option.value = faculty;
-                option.textContent = faculty;
-                taskAssigneeSelect.appendChild(option);
-            });
+            // Initialize dropdowns based on current faculty list
+            updateFacultyDropdowns();
         }
 
         // Tab Navigation with Role-Based Access
@@ -1489,14 +1509,10 @@
             const leavesBtn = document.querySelectorAll('[data-tab="leaves"]')[0];
             
             if (currentUser.role === 'PA') {
-                // Hide leave and settings tabs for PA
                 leavesBtn.style.display = 'none';
                 settingsBtn.style.display = 'none';
-                
-                // Show only tasks tab
                 document.querySelectorAll('[data-tab="tasks"]')[0].click();
             } else {
-                // Show all tabs for Admin
                 leavesBtn.style.display = 'block';
                 settingsBtn.style.display = 'block';
             }
@@ -1560,6 +1576,7 @@
             };
 
             state.leaves.push(leave);
+            saveAppState();
             closeModal('leaveApplicationModal');
             renderLeaves();
             showAlert('Leave application submitted successfully!', 'success');
@@ -1578,6 +1595,7 @@
                 leave.modifiedCount = (leave.modifiedCount || 0) + 1;
                 leave.lastModifiedDate = new Date().toISOString().split('T')[0];
 
+                saveAppState();
                 closeModal('leaveModificationModal');
                 renderLeaves();
                 showAlert('Leave request updated successfully!', 'success');
@@ -1592,6 +1610,7 @@
                 if (confirm('Are you sure you want to withdraw this leave request?')) {
                     leave.status = 'Withdrawn';
                     leave.withdrawnDate = new Date().toISOString().split('T')[0];
+                    saveAppState();
                     renderLeaves();
                     showAlert('Leave request withdrawn!', 'success');
                 }
@@ -1606,7 +1625,6 @@
                 leave.status = 'Approved';
                 leave.approvalDate = new Date().toISOString().split('T')[0];
 
-                // Update leave balance
                 const balance = window.facultyBalances.find(b => b.name === leave.applicant);
                 if (balance) {
                     const days = leave.duration.includes('Half') ? 0.5 :
@@ -1618,6 +1636,7 @@
                     else if (leave.leaveType === 'SL') balance.SL -= days;
                 }
 
+                saveAppState();
                 renderLeaves();
                 showAlert('Leave approved successfully!', 'success');
             }
@@ -1628,6 +1647,7 @@
             if (leave) {
                 leave.status = 'Rejected';
                 leave.rejectionDate = new Date().toISOString().split('T')[0];
+                saveAppState();
                 renderLeaves();
                 showAlert('Leave rejected!', 'success');
             }
@@ -1681,7 +1701,6 @@
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px;">No leave requests found</td></tr>';
             }
 
-            // Update statistics
             document.getElementById('totalLeaveRequests').textContent = state.leaves.length;
             document.getElementById('pendingLeaves').textContent = state.leaves.filter(l => l.status === 'Pending').length;
             document.getElementById('approvedLeaves').textContent = state.leaves.filter(l => l.status === 'Approved').length;
@@ -1697,10 +1716,10 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${faculty.name}</td>
-                    <td><span class="badge badge-info">${Math.max(0, faculty.CL)}/12</span></td>
-                    <td><span class="badge badge-info">${Math.max(0, faculty.ML)}/12</span></td>
-                    <td><span class="badge badge-info">${Math.max(0, faculty.EL)}/20</span></td>
-                    <td><span class="badge badge-info">${Math.max(0, faculty.SL)}/10</span></td>
+                    <td><span class="badge badge-info">${Math.max(0, faculty.CL)}/${faculty.CLAlloc}</span></td>
+                    <td><span class="badge badge-info">${Math.max(0, faculty.ML)}/${faculty.MLAlloc}</span></td>
+                    <td><span class="badge badge-info">${Math.max(0, faculty.EL)}/${faculty.ELAlloc}</span></td>
+                    <td><span class="badge badge-info">${Math.max(0, faculty.SL)}/${faculty.SLAlloc}</span></td>
                 `;
                 tbody.appendChild(row);
             });
@@ -1738,6 +1757,7 @@
             };
 
             state.tasks.push(task);
+            saveAppState();
             closeModal('assignTaskModal');
             renderTasks();
             showAlert(`Task assigned to ${task.assigneeName} and email notification sent to ${task.assigneeEmail}!`, 'success');
@@ -1771,6 +1791,7 @@
             if (task) {
                 task.status = 'In Progress';
                 task.startedDate = new Date().toISOString().split('T')[0];
+                saveAppState();
                 renderTasks();
                 showAlert('Task marked as in progress!', 'success');
             }
@@ -1781,6 +1802,7 @@
             if (task) {
                 task.status = 'Completed';
                 task.completedDate = new Date().toISOString().split('T')[0];
+                saveAppState();
                 renderTasks();
                 showAlert('Task marked as completed!', 'success');
             }
@@ -1789,6 +1811,7 @@
         function deleteTask(taskId) {
             if (confirm('Delete this task?')) {
                 state.tasks = state.tasks.filter(t => t.id !== taskId);
+                saveAppState();
                 renderTasks();
                 showAlert('Task deleted!', 'success');
             }
@@ -1806,7 +1829,6 @@
                 completedTasks = completedTasks.filter(t => t.title.toLowerCase().includes(searchTerm) || t.assigneeEmail.toLowerCase().includes(searchTerm));
             }
 
-            // Render active tasks
             const activeContainer = document.getElementById('activeTasksContainer');
             if (statusFilter === 'completed') {
                 activeContainer.innerHTML = '';
@@ -1851,7 +1873,6 @@
                 }
             }
 
-            // Render completed tasks
             const completedContainer = document.getElementById('completedTasksContainer');
             const completedContainer2 = document.getElementById('completedTasksContainer2');
 
@@ -1882,7 +1903,6 @@
                 completedContainer.classList.add('hidden');
             }
 
-            // Update statistics
             document.getElementById('totalTasks').textContent = state.tasks.length;
             document.getElementById('pendingTasks').textContent = activeTasks.length;
             document.getElementById('completedTasks').textContent = completedTasks.length;
@@ -1917,6 +1937,7 @@
         function exportAllFacultyLeaves() {
             const data = window.facultyBalances.map(faculty => ({
                 'Faculty Name': faculty.name,
+                'Designation': faculty.designation || '',
                 'CL Balance': Math.max(0, faculty.CL),
                 'ML Balance': Math.max(0, faculty.ML),
                 'EL Balance': Math.max(0, faculty.EL),
@@ -1954,11 +1975,10 @@
                 'Applied Date': new Date(l.appliedDate).toLocaleDateString('en-GB')
             }));
 
-            // Add summary row
             data.unshift({
                 'Leave ID': 'SUMMARY',
                 'Leave Type': '',
-                'From Date': `CL: ${facultyBalance.CL}/12 | ML: ${facultyBalance.ML}/12 | EL: ${facultyBalance.EL}/20 | SL: ${facultyBalance.SL}/10`,
+                'From Date': `CL: ${facultyBalance.CL}/${facultyBalance.CLAlloc} | ML: ${facultyBalance.ML}/${facultyBalance.MLAlloc} | EL: ${facultyBalance.EL}/${facultyBalance.ELAlloc} | SL: ${facultyBalance.SL}/${facultyBalance.SLAlloc}`,
                 'To Date': '',
                 'Duration': '',
                 'Status': 'Current Balance',
@@ -1997,14 +2017,12 @@
                     return;
                 }
 
-                // Convert data to CSV format
                 const headers = Object.keys(data[0]);
                 const csvContent = [
                     headers.join(','),
                     ...data.map(row =>
                         headers.map(header => {
                             const value = row[header];
-                            // Escape quotes and wrap in quotes if contains comma or newline
                             const stringValue = String(value);
                             if (stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('"')) {
                                 return `"${stringValue.replace(/"/g, '""')}"`;
@@ -2014,7 +2032,6 @@
                     )
                 ].join('\n');
 
-                // Create blob and download
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
                 const url = URL.createObjectURL(blob);
@@ -2111,7 +2128,10 @@
             filtered.forEach(faculty => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${faculty.name}</td>
+                    <td>
+                        ${faculty.name}<br>
+                        <span style="font-size: 12px; color: var(--text-secondary);">${faculty.designation || ''}</span>
+                    </td>
                     <td><span class="badge badge-info">${Math.max(0, faculty.CL)}/${faculty.CLAlloc}</span></td>
                     <td><span class="badge badge-info">${Math.max(0, faculty.ML)}/${faculty.MLAlloc}</span></td>
                     <td><span class="badge badge-info">${Math.max(0, faculty.EL)}/${faculty.ELAlloc}</span></td>
@@ -2128,12 +2148,10 @@
                 tbody.appendChild(row);
             });
 
-            // Populate faculty filter dropdown
             updateFacultyDropdowns();
         }
 
         function updateFacultyDropdowns() {
-            // Update leave applicant dropdown
             const leaveApplicantSelect = document.getElementById('leaveApplicantName');
             const currentLeaveValue = leaveApplicantSelect.value;
             leaveApplicantSelect.innerHTML = '<option value="">Select Faculty Member</option>';
@@ -2145,7 +2163,6 @@
             });
             leaveApplicantSelect.value = currentLeaveValue;
 
-            // Update task assignee dropdown
             const taskAssigneeSelect = document.getElementById('taskAssigneeSelect');
             const currentTaskValue = taskAssigneeSelect.value;
             taskAssigneeSelect.innerHTML = '<option value="">Select Faculty Member</option>';
@@ -2157,7 +2174,6 @@
             });
             taskAssigneeSelect.value = currentTaskValue;
 
-            // Update export filter dropdown
             const filterSelect = document.getElementById('facultyExportFilter');
             const currentFilterValue = filterSelect.value;
             filterSelect.innerHTML = '<option value="">All Faculty</option>';
@@ -2177,8 +2193,8 @@
         function handleAddFaculty(event) {
             event.preventDefault();
             const facultyName = document.getElementById('facultyName').value.trim();
-            
-            // Check if faculty already exists
+            const designation = document.getElementById('facultyDesignation').value.trim();
+
             if (window.facultyBalances.some(f => f.name.toLowerCase() === facultyName.toLowerCase())) {
                 showAlert('Faculty member already exists!', 'danger');
                 return;
@@ -2186,6 +2202,7 @@
 
             const newFaculty = {
                 name: facultyName,
+                designation: designation,
                 CL: parseInt(document.getElementById('facultyCL').value),
                 CLAlloc: parseInt(document.getElementById('facultyCL').value),
                 ML: parseInt(document.getElementById('facultyML').value),
@@ -2201,6 +2218,7 @@
             };
 
             window.facultyBalances.push(newFaculty);
+            saveAppState();
             closeModal('addFacultyModal');
             renderFacultyDirectory();
             updateFacultyDropdowns();
@@ -2211,12 +2229,10 @@
             if (confirm(`Are you sure you want to delete "${facultyName}"? This will remove their leave balance record.`)) {
                 window.facultyBalances = window.facultyBalances.filter(f => f.name !== facultyName);
                 
-                // Also remove any associated leaves
                 state.leaves = state.leaves.filter(l => l.applicant !== facultyName);
-                
-                // Also remove any associated tasks
                 state.tasks = state.tasks.filter(t => t.assigneeName !== facultyName);
-                
+
+                saveAppState();
                 renderFacultyDirectory();
                 updateFacultyDropdowns();
                 renderLeaves();
@@ -2229,9 +2245,8 @@
             renderFacultyDirectory();
         }
 
-        // Initialize on page load
         window.addEventListener('load', () => {
-            console.log('System ready. Demo credentials: Admin (admin/admin123) or PA (pa/pa123)');
+            console.log('System ready. Admin login: admin / master@5144');
         });
     </script>
 </body>
