@@ -594,9 +594,6 @@
                 <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Login</button>
             </form>
             <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color); font-size: 12px; color: var(--text-secondary);">
-                <p><strong>Admin Login:</strong></p>
-                <p>User ID: <strong>admin</strong></p>
-                <p>Password: <strong>master@5144</strong></p>
             </div>
         </div>
     </div>
@@ -2141,7 +2138,7 @@
                     <td style="text-align: center;">
                         <div class="action-buttons" style="justify-content: center;">
                             <button class="btn btn-small btn-secondary" onclick="exportIndividualFacultyLeaves('${faculty.name}')">📥 Export</button>
-                            <button class="btn btn-small btn-danger" onclick="deleteFaculty('${faculty.name}')">🗑️ Delete</button>
+                            <button class="btn btn-small btn-primary" onclick="openEditFacultyModal('${faculty.name}', '${faculty.designation}', ${faculty.CLAlloc}, ${faculty.MLAlloc}, ${faculty.ELAlloc}, ${faculty.SLAlloc}, ${faculty.ODAlloc})">✏️ Edit</button> <button class="btn btn-small btn-danger" onclick="deleteFaculty('${faculty.name}')">🗑️ Delete</button>
                         </div>
                     </td>
                 `;
@@ -2190,6 +2187,18 @@
             document.getElementById('addFacultyModal').classList.add('active');
         }
 
+           function openEditFacultyModal(facultyName, designation, cl, ml, el, sl, od) {
+      document.getElementById('editFacultyName').value = facultyName;
+      document.getElementById('editFacultyDesignation').value = designation;
+      document.getElementById('editFacultyCL').value = cl;
+      document.getElementById('editFacultyML').value = ml;
+      document.getElementById('editFacultyEL').value = el;
+      document.getElementById('editFacultySL').value = sl;
+      document.getElementById('editFacultyOD').value = od;
+      document.getElementById('editFacultyOldName').value = facultyName;
+      document.getElementById('editFacultyModal').classList.add('active');
+   }
+
         function handleAddFaculty(event) {
             event.preventDefault();
             const facultyName = document.getElementById('facultyName').value.trim();
@@ -2224,6 +2233,43 @@
             updateFacultyDropdowns();
             showAlert(`Faculty "${facultyName}" added successfully!`, 'success');
         }
+
+           function handleEditFaculty(oldName) {
+      const facultyName = document.getElementById('editFacultyName').value.trim();
+      const designation = document.getElementById('editFacultyDesignation').value.trim();
+      const cl = parseInt(document.getElementById('editFacultyCL').value);
+      const ml = parseInt(document.getElementById('editFacultyML').value);
+      const el = parseInt(document.getElementById('editFacultyEL').value);
+      const sl = parseInt(document.getElementById('editFacultySL').value);
+      const od = parseInt(document.getElementById('editFacultyOD').value);
+
+      if (window.facultyBalances.some(f => f.name.toLowerCase() === facultyName.toLowerCase() && f.name !== oldName)) {
+         showAlert('Faculty name already exists!', 'danger');
+         return;
+      }
+
+      const faculty = window.facultyBalances.find(f => f.name === oldName);
+      if (faculty) {
+         faculty.name = facultyName;
+         faculty.designation = designation;
+         faculty.CLAlloc = cl;
+         faculty.CL = cl;
+         faculty.MLAlloc = ml;
+         faculty.ML = ml;
+         faculty.ELAlloc = el;
+         faculty.EL = el;
+         faculty.SLAlloc = sl;
+         faculty.SL = sl;
+         faculty.ODAlloc = od;
+         faculty.OD = od;
+         
+         saveAppState();
+         closeModal('editFacultyModal');
+         renderFacultyDirectory();
+         updateFacultyDropdowns();
+         showAlert(`Faculty "${facultyName}" updated successfully!`, 'success');
+      }
+   }
 
         function deleteFaculty(facultyName) {
             if (confirm(`Are you sure you want to delete "${facultyName}"? This will remove their leave balance record.`)) {
