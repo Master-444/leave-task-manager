@@ -1206,6 +1206,7 @@
                     users: state.users,
                     nextLeaveId: state.nextLeaveId,
                     nextTaskId: state.nextTaskId
+                    credentials: credentials
                 }));
                 localStorage.setItem('ltm_facultyBalances', JSON.stringify(window.facultyBalances || []));
             } catch (e) {
@@ -1225,6 +1226,7 @@
                     state.users = parsed.users || state.users;
                     state.nextLeaveId = parsed.nextLeaveId || 1;
                     state.nextTaskId = parsed.nextTaskId || 1;
+                    if (parsed.credentials) { Object.assign(credentials, parsed.credentials); }
                 }
 
                 if (savedFaculty) {
@@ -1236,6 +1238,45 @@
                 console.error('Error loading saved state', e);
             }
         }
+
+        // IndexedDB fallback for Perplexity environment
+function saveToIndexedDB(stateData) {
+  const request = indexedDB.open('LeaveTaskManager', 1);
+  request.onupgradeneeded = function(event) {
+    const db = event.target.result;
+    if (!db.objectStoreNames.contains('appState')) {
+      db.createObjectStore('appState', { keyPath: 'key' });
+    }
+  };
+  request.onsuccess = function(event) {
+    const db = event.target.result;
+    const transaction = db.transaction(['appState'], 'readwrite');
+    const store = transaction.objectStore('appState');
+    store.put({ key: 'state', data: stateData });
+  };
+}
+
+function loadFromIndexedDB() {
+  const request = indexedDB.open('LeaveTaskManager', 1);
+  request.onsuccess = function(event) {
+    const db = event.target.result;
+    const transaction = db.transaction(['appState'], 'readonly');
+    const store = transaction.objectStore('appState');
+    const dataRequest = store.get('state');
+    dataRequest.onsuccess = function() {
+      if (dataRequest.result && dataRequest.result.data) {
+        const data = dataRequest.result.data;
+        state.leaves = data.leaves || [];
+        state.tasks = data.tasks || [];
+        state.users = data.users || state.users;
+        state.nextLeaveId = data.nextLeaveId || 1;
+        state.nextTaskId = data.nextTaskId || 1;
+        Object.assign(credentials, data.credentials || {});
+        window.facultyBalances = data.facultyBalances || [];
+      }
+    };
+  };
+}
 
         // Login Handler
         function handleLogin(event) {
